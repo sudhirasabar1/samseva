@@ -1,0 +1,141 @@
+
+<!DOCTYPE html>
+<html lang="or">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAMSEVA - Online Document Service</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Oriya:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f2f7f4;color:#173b2c;font-family:'Noto Sans Oriya',sans-serif}
+header{background:#087653;color:white;padding:24px 18px;text-align:center}
+.logo{font-size:32px;font-weight:800}
+header p{margin:5px 0;font-size:14px}
+.container{max-width:650px;margin:35px auto;padding:15px}
+.card{background:white;padding:25px;border-radius:18px;box-shadow:0 5px 25px #0001}
+h2{text-align:center;font-size:23px}
+label{display:block;margin:18px 0 7px;font-weight:700}
+input{width:100%;padding:13px;border:1px solid #ccdcd2;border-radius:9px;font-size:15px}
+.upload{padding:18px;border:2px dashed #0b9a69;border-radius:12px;background:#f7fcf9}
+button{width:100%;padding:15px;background:#087653;color:white;border:0;border-radius:10px;font-size:17px;font-weight:bold;margin-top:22px;cursor:pointer}
+button:disabled{opacity:.6}
+#message{margin-top:15px;padding:12px;border-radius:9px;display:none;line-height:1.7}
+footer{text-align:center;padding:20px;color:#789}
+</style>
+</head>
+<body>
+<header>
+<div class="logo">SAMSEVA</div>
+<p>ଆପଣଙ୍କ ଅନଲାଇନ୍ ଡକ୍ୟୁମେଣ୍ଟ ସେବା କେନ୍ଦ୍ର</p>
+</header>
+
+<div class="container">
+<div class="card">
+<h2>ଡକ୍ୟୁମେଣ୍ଟ ଅପଲୋଡ୍ କରନ୍ତୁ</h2>
+<p>ଦୟାକରି ଆପଣଙ୍କ ନାମ, ମୋବାଇଲ୍ ନମ୍ବର ଏବଂ ଫାଇଲ୍ ଦିଅନ୍ତୁ।</p>
+
+<form id="uploadForm">
+<label>ଆପଣଙ୍କ ନାମ *</label>
+<input id="name" required maxlength="100" placeholder="ଆପଣଙ୍କ ନାମ">
+
+<label>ମୋବାଇଲ୍ ନମ୍ବର *</label>
+<input id="mobile" type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" required placeholder="10 digit mobile number">
+
+<label>ଫଟୋ / PDF ଅପଲୋଡ୍ କରନ୍ତୁ *</label>
+<div class="upload">
+<input id="files" type="file" multiple required accept=".jpg,.jpeg,.png,.webp,.pdf">
+<p style="font-size:12px">JPG, PNG, WEBP, PDF | Maximum 10 MB per file</p>
+</div>
+
+<button id="submitBtn" type="submit">ଡକ୍ୟୁମେଣ୍ଟ ପଠାନ୍ତୁ</button>
+<div id="message"></div>
+</form>
+</div>
+</div>
+<footer>© SAMSEVA | Online Document Service</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const form=document.getElementById("uploadForm");
+const msg=document.getElementById("message");
+const btn=document.getElementById("submitBtn");
+
+form.addEventListener("submit",async function(e){
+e.preventDefault();
+
+const name=document.getElementById("name").value.trim();
+const mobile=document.getElementById("mobile").value.trim();
+const files=[...document.getElementById("files").files];
+
+if(!/^[0-9]{10}$/.test(mobile)||files.length===0){
+msg.style.display="block";
+msg.style.background="#ffeded";
+msg.textContent="ଦୟାକରି ସଠିକ୍ ତଥ୍ୟ ଭରନ୍ତୁ।";
+return;
+}
+
+if(files.some(f=>f.size>10*1024*1024)){
+alert("Each file must be under 10 MB");
+return;
+}
+
+btn.disabled=true;
+btn.textContent="Uploading...";
+
+try{
+const db=supabase.createClient(
+SAMSEVA_CONFIG.SUPABASE_URL,
+SAMSEVA_CONFIG.SUPABASE_ANON_KEY
+);
+
+const id=crypto.randomUUID();
+let uploaded=[];
+
+for(const file of files){
+const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+const path=id+"/"+crypto.randomUUID()+"_"+safe;
+
+const {error}=await db.storage
+.from("customer-documents")
+.upload(path,file,{contentType:file.type});
+
+if(error)throw error;
+
+uploaded.push({
+name:file.name,
+path:path,
+size:file.size,
+type:file.type
+});
+}
+
+const {error}=await db.from("submissions").insert({
+id:id,
+customer_name:name,
+mobile:mobile,
+files:uploaded
+});
+
+if(error)throw error;
+
+form.reset();
+msg.style.display="block";
+msg.style.background="#e7f8ed";
+msg.textContent="ଆପଣଙ୍କ ଡକ୍ୟୁମେଣ୍ଟ ସଫଳତାର ସହିତ ଜମା ହୋଇଛି। Submission ID: "+id;
+
+}catch(error){
+console.error(error);
+msg.style.display="block";
+msg.style.background="#ffeded";
+msg.textContent="Upload ବିଫଳ ହୋଇଛି। ଦୟାକରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।";
+}
+finally{
+btn.disabled=false;
+btn.textContent="ଡକ୍ୟୁମେଣ୍ଟ ପଠାନ୍ତୁ";
+}
+});
+</script>
+</body>
+</html>
