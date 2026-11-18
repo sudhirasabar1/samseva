@@ -1,4 +1,4 @@
-
+```html
 <!DOCTYPE html>
 <html lang="or">
 <head>
@@ -12,13 +12,16 @@ main{max-width:1000px;margin:25px auto;padding:15px}
 .card{background:white;padding:22px;border-radius:14px;margin-bottom:18px;box-shadow:0 4px 20px #0001}
 input{width:100%;padding:12px;margin:8px 0;border:1px solid #ccd9d0;border-radius:8px;box-sizing:border-box}
 button{background:#087653;color:white;padding:10px 15px;border:0;border-radius:7px;cursor:pointer;margin:5px}
+button:disabled{opacity:.6;cursor:wait}
 .delete{background:#c0392b}
-.file{padding:10px;border-top:1px solid #eee}
+.file{padding:10px;border-top:1px solid #eee;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .hidden{display:none}
 </style>
 </head>
 <body>
+
 <header><h2>SAMSEVA ADMIN PANEL</h2></header>
+
 <main>
 <div class="card" id="login">
 <h2>Admin Login</h2>
@@ -40,87 +43,184 @@ button{background:#087653;color:white;padding:10px 15px;border:0;border-radius:7
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+
 <script>
-const db=supabase.createClient(
-SAMSEVA_CONFIG.SUPABASE_URL,
-SAMSEVA_CONFIG.SUPABASE_ANON_KEY
+const db = supabase.createClient(
+  SAMSEVA_CONFIG.SUPABASE_URL,
+  SAMSEVA_CONFIG.SUPABASE_ANON_KEY
 );
 
+// ADMIN LOGIN
 async function login(){
-const {error}=await db.auth.signInWithPassword({
-email:document.getElementById("email").value,
-password:document.getElementById("password").value
-});
-if(error){
-document.getElementById("error").textContent="Login failed. Check details.";
-return;
-}
-document.getElementById("login").classList.add("hidden");
-document.getElementById("dashboard").classList.remove("hidden");
-loadData();
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const errorBox = document.getElementById("error");
+
+  errorBox.textContent = "Logging in...";
+
+  const {error} = await db.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if(error){
+    errorBox.textContent = "Login failed. Check email and password.";
+    return;
+  }
+
+  document.getElementById("login").classList.add("hidden");
+  document.getElementById("dashboard").classList.remove("hidden");
+
+  loadData();
 }
 
+// LOGOUT
 async function logout(){
-await db.auth.signOut();
-location.reload();
+  await db.auth.signOut();
+  location.reload();
 }
 
+// DOWNLOAD FILE DIRECTLY
+async function downloadFile(file, button){
+
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Downloading...";
+
+  try{
+
+    // Download file from private Supabase Storage
+    const {data, error} = await db.storage
+      .from("customer-documents")
+      .download(file.path);
+
+    if(error) throw error;
+
+    if(!data){
+      throw new Error("File not found");
+    }
+
+    // Create temporary download link
+    const url = URL.createObjectURL(data);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name || "SAMSEVA-document";
+    document.body.appendChild(a);
+
+    a.click();
+    a.remove();
+
+    // Release temporary URL
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+
+    button.textContent = "Downloaded";
+
+  }catch(error){
+
+    console.error("Download error:", error);
+    alert("Download failed: " + error.message);
+    button.textContent = originalText;
+
+  }finally{
+    button.disabled = false;
+  }
+}
+
+// LOAD CUSTOMER DATA
 async function loadData(){
-const box=document.getElementById("records");
-box.innerHTML="Loading...";
-const {data,error}=await db.from("submissions")
-.select("*").order("created_at",{ascending:false});
 
-if(error){box.innerHTML="Unable to load records.";return;}
-if(!data.length){box.innerHTML="No documents uploaded yet.";return;}
+  const box = document.getElementById("records");
+  box.innerHTML = "Loading...";
 
-box.innerHTML="";
-data.forEach(row=>{
-const card=document.createElement("div");
-card.className="card";
-const title=document.createElement("h3");
-title.textContent=row.customer_name+" - "+row.mobile;
-card.appendChild(title);
+  const {data, error} = await db
+    .from("submissions")
+    .select("*")
+    .order("created_at", {ascending:false});
 
-(row.files||[]).forEach(file=>{
-const line=document.createElement("div");
-line.className="file";
-const name=document.createElement("span");
-name.textContent=file.name+" ";
-const download=document.createElement("button");
-download.textContent="Download";
-download.onclick=async()=>{
-const {data,error}=await db.storage.from("customer-documents")
-.createSignedUrl(file.path,60);
-if(error){alert("Download failed");return;}
-const a=document.createElement("a");
-a.href=data.signedUrl;
-a.download=file.name;
-a.target="_blank";
-a.click();
-};
-line.append(name,download);
-card.appendChild(line);
-});
+  if(error){
+    console.error(error);
+    box.textContent = "Unable to load records.";
+    return;
+  }
 
-const del=document.createElement("button");
-del.className="delete";
-del.textContent="Delete";
-del.onclick=async()=>{
-if(!confirm("Delete this customer submission?"))return;
-const paths=(row.files||[]).map(f=>f.path);
-if(paths.length){
-const {error}=await db.storage.from("customer-documents").remove(paths);
-if(error){alert("File delete failed");return;}
-}
-const {error}=await db.from("submissions").delete().eq("id",row.id);
-if(error){alert("Record delete failed");return;}
-loadData();
-};
-card.appendChild(del);
-box.appendChild(card);
-});
+  if(!data.length){
+    box.textContent = "No documents uploaded yet.";
+    return;
+  }
+
+  box.innerHTML = "";
+
+  data.forEach(row => {
+
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const title = document.createElement("h3");
+    title.textContent = row.customer_name + " - " + row.mobile;
+    card.appendChild(title);
+
+    (row.files || []).forEach(file => {
+
+      const line = document.createElement("div");
+      line.className = "file";
+
+      const name = document.createElement("span");
+      name.textContent = file.name;
+
+      const download = document.createElement("button");
+      download.textContent = "Download";
+
+      download.onclick = () => downloadFile(file, download);
+
+      line.append(name, download);
+      card.appendChild(line);
+
+    });
+
+    // DELETE SUBMISSION
+    const del = document.createElement("button");
+    del.className = "delete";
+    del.textContent = "Delete";
+
+    del.onclick = async () => {
+
+      if(!confirm("Delete this customer submission?")) return;
+
+      const paths = (row.files || []).map(f => f.path);
+
+      if(paths.length){
+
+        const {error} = await db.storage
+          .from("customer-documents")
+          .remove(paths);
+
+        if(error){
+          alert("File delete failed: " + error.message);
+          return;
+        }
+      }
+
+      const {error} = await db
+        .from("submissions")
+        .delete()
+        .eq("id", row.id);
+
+      if(error){
+        alert("Record delete failed: " + error.message);
+        return;
+      }
+
+      loadData();
+    };
+
+    card.appendChild(del);
+    box.appendChild(card);
+
+  });
 }
 </script>
+
 </body>
 </html>
+```
