@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="or">
 <head>
@@ -24,6 +23,20 @@ button{width:100%;padding:15px;background:#087653;color:white;border:0;border-ra
 button:disabled{opacity:.6}
 #message{margin-top:15px;padding:12px;border-radius:9px;display:none;line-height:1.7}
 footer{text-align:center;padding:20px;color:#789}
+
+.file-list{margin-top:10px}
+.file-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 10px;background:#f7fcf9;border:1px solid #d5ebe0;
+  border-radius:8px;margin-top:6px;font-size:13px;gap:8px;
+}
+.file-item span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-item button{
+  width:auto;padding:4px 10px;margin:0;
+  background:#e74c3c;border-radius:6px;font-size:12px;flex-shrink:0;
+}
+.clear-link{text-align:center;font-size:12px;margin-top:12px}
+.clear-link a{color:#789;text-decoration:underline}
 </style>
 </head>
 <body>
@@ -46,12 +59,22 @@ footer{text-align:center;padding:20px;color:#789}
 
 <label>ଫଟୋ / PDF ଅପଲୋଡ୍ କରନ୍ତୁ *</label>
 <div class="upload">
-<input id="files" type="file" multiple required accept=".jpg,.jpeg,.png,.webp,.pdf">
-<p style="font-size:12px">JPG, PNG, WEBP, PDF | Maximum 10 MB per file</p>
+  <input id="files" type="file" multiple
+         accept="image/jpeg,image/png,image/webp,image/*,application/pdf">
+  <p style="font-size:12px;margin:6px 0 0">
+    JPG, PNG, WEBP, PDF | Max 10 MB per file |
+    <b>ଏକାଧିକ ଫାଇଲ୍ ଚୟନ କରନ୍ତୁ</b>
+  </p>
 </div>
+
+<div id="fileList" class="file-list"></div>
 
 <button id="submitBtn" type="submit">ଡକ୍ୟୁମେଣ୍ଟ ପଠାନ୍ତୁ</button>
 <div id="message"></div>
+
+<p class="clear-link">
+  <a href="#" id="clearSaved">ସଞ୍ଚିତ ତଥ୍ୟ ହଟାନ୍ତୁ (Clear saved info)</a>
+</p>
 </form>
 </div>
 </div>
@@ -60,84 +83,139 @@ footer{text-align:center;padding:20px;color:#789}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script>
-const form=document.getElementById("uploadForm");
-const msg=document.getElementById("message");
-const btn=document.getElementById("submitBtn");
+const form       = document.getElementById("uploadForm");
+const msg        = document.getElementById("message");
+const btn        = document.getElementById("submitBtn");
+const filesInput = document.getElementById("files");
+const fileList   = document.getElementById("fileList");
 
-form.addEventListener("submit",async function(e){
-e.preventDefault();
+let pickedFiles = [];
 
-const name=document.getElementById("name").value.trim();
-const mobile=document.getElementById("mobile").value.trim();
-const files=[...document.getElementById("files").files];
-
-if(!/^[0-9]{10}$/.test(mobile)||files.length===0){
-msg.style.display="block";
-msg.style.background="#ffeded";
-msg.textContent="ଦୟାକରି ସଠିକ୍ ତଥ୍ୟ ଭରନ୍ତୁ।";
-return;
-}
-
-if(files.some(f=>f.size>10*1024*1024)){
-alert("Each file must be under 10 MB");
-return;
-}
-
-btn.disabled=true;
-btn.textContent="Uploading...";
-
-try{
-const db=supabase.createClient(
-SAMSEVA_CONFIG.SUPABASE_URL,
-SAMSEVA_CONFIG.SUPABASE_ANON_KEY
-);
-
-const id=crypto.randomUUID();
-let uploaded=[];
-
-for(const file of files){
-const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
-const path=id+"/"+crypto.randomUUID()+"_"+safe;
-
-const {error}=await db.storage
-.from("customer-documents")
-.upload(path,file,{contentType:file.type});
-
-if(error)throw error;
-
-uploaded.push({
-name:file.name,
-path:path,
-size:file.size,
-type:file.type
-});
-}
-
-const {error}=await db.from("submissions").insert({
-id:id,
-customer_name:name,
-mobile:mobile,
-files:uploaded
+/* -------- AUTO-FILL FROM PREVIOUS VISIT -------- */
+window.addEventListener("DOMContentLoaded", () => {
+  const savedName   = localStorage.getItem("samseva_name");
+  const savedMobile = localStorage.getItem("samseva_mobile");
+  if (savedName)   document.getElementById("name").value   = savedName;
+  if (savedMobile) document.getElementById("mobile").value = savedMobile;
 });
 
-if(error)throw error;
-
-form.reset();
-msg.style.display="block";
-msg.style.background="#e7f8ed";
-msg.textContent="ଆପଣଙ୍କ ଡକ୍ୟୁମେଣ୍ଟ ସଫଳତାର ସହିତ ଜମା ହୋଇଛି। Submission ID: "+id;
-
-}catch(error){
-console.error(error);
-msg.style.display="block";
-msg.style.background="#ffeded";
-msg.textContent="Upload ବିଫଳ ହୋଇଛି। ଦୟାକରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।";
-}
-finally{
-btn.disabled=false;
-btn.textContent="ଡକ୍ୟୁମେଣ୍ଟ ପଠାନ୍ତୁ";
-}
+/* -------- FILE SELECT -------- */
+filesInput.addEventListener("change", () => {
+  [...filesInput.files].forEach(f => {
+    const dup = pickedFiles.some(x => x.name === f.name && x.size === f.size);
+    if (!dup) pickedFiles.push(f);
+  });
+  filesInput.value = "";
+  renderFiles();
 });
+
+/* -------- RENDER FILE LIST -------- */
+function renderFiles() {
+  fileList.innerHTML = "";
+  pickedFiles.forEach((f, i) => {
+    const el = document.createElement("div");
+    el.className = "file-item";
+    el.innerHTML = `<span>📄 ${f.name} (${(f.size / 1024 / 1024).toFixed(2)} MB)</span>`;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = "✕";
+    b.onclick = () => { pickedFiles.splice(i, 1); renderFiles(); };
+    el.appendChild(b);
+    fileList.appendChild(el);
+  });
+}
+
+/* -------- SUBMIT -------- */
+form.addEventListener("submit", async function (e) {
+  e.preventDefault();
+
+  const name   = document.getElementById("name").value.trim();
+  const mobile = document.getElementById("mobile").value.trim();
+
+  if (!/^[0-9]{10}$/.test(mobile) || pickedFiles.length === 0) {
+    showMsg("ଦୟାକରି ସଠିକ୍ ତଥ୍ୟ ଭରନ୍ତୁ।", "#ffeded");
+    return;
+  }
+  if (pickedFiles.some(f => f.size > 10 * 1024 * 1024)) {
+    showMsg("Each file must be under 10 MB", "#ffeded");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Uploading...";
+
+  try {
+    const db = supabase.createClient(
+      SAMSEVA_CONFIG.SUPABASE_URL,
+      SAMSEVA_CONFIG.SUPABASE_ANON_KEY
+    );
+
+    const id = crypto.randomUUID();
+    const uploaded = [];
+
+    for (let i = 0; i < pickedFiles.length; i++) {
+      const file = pickedFiles[i];
+      btn.textContent = `Uploading ${i + 1}/${pickedFiles.length}...`;
+
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = id + "/" + crypto.randomUUID() + "_" + safe;
+
+      const { error } = await db.storage
+        .from("customer-documents")
+        .upload(path, file, { contentType: file.type });
+
+      if (error) throw error;
+
+      uploaded.push({ name: file.name, path, size: file.size, type: file.type });
+    }
+
+    const { error } = await db.from("submissions").insert({
+      id, customer_name: name, mobile, files: uploaded
+    });
+    if (error) throw error;
+
+    /* -------- SAVE FOR NEXT VISIT -------- */
+    localStorage.setItem("samseva_name", name);
+    localStorage.setItem("samseva_mobile", mobile);
+
+    form.reset();
+    pickedFiles = [];
+    renderFiles();
+
+    /* Autofill wapas (kyunki form.reset() ne clear kar diya) */
+    document.getElementById("name").value   = name;
+    document.getElementById("mobile").value = mobile;
+
+    showMsg(
+      "ଆପଣଙ୍କ ଡକ୍ୟୁମେଣ୍ଟ ସଫଳତାର ସହିତ ଜମା ହୋଇଛି। Submission ID: " + id,
+      "#e7f8ed"
+    );
+
+  } catch (err) {
+    console.error(err);
+    showMsg("Upload ବିଫଳ ହୋଇଛି। ଦୟାକରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।", "#ffeded");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "ଡକ୍ୟୁମେଣ୍ଟ ପଠାନ୍ତୁ";
+  }
+});
+
+/* -------- CLEAR SAVED INFO -------- */
+document.getElementById("clearSaved").addEventListener("click", (e) => {
+  e.preventDefault();
+  localStorage.removeItem("samseva_name");
+  localStorage.removeItem("samseva_mobile");
+  document.getElementById("name").value = "";
+  document.getElementById("mobile").value = "";
+  showMsg("ସଞ୍ଚିତ ତଥ୍ୟ ହଟାଗଲା।", "#e7f8ed");
+});
+
+/* -------- HELPERS -------- */
+function showMsg(text, bg) {
+  msg.style.display = "block";
+  msg.style.background = bg;
+  msg.textContent = text;
+}
 </script>
 </body>
 </html>
