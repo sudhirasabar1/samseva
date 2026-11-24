@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>liveSEVA - Your Trusted Digital Service Center</title>
+    <title>SAMSEVA - Your Trusted Digital Service Center</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
     <header>
-        <div class="logo">liveSEVA</div>
-        <nav class="nav-links">
+        <div class="logo">SAMSEVA</div>
+        <button class="menu-toggle" id="mobile-menu-btn">☰</button>
+        
+        <nav class="nav-links" id="nav-links">
             <a href="#services">Services</a>
             <a href="#apply">Apply</a>
             <a href="#payment">Payment</a>
@@ -70,14 +71,19 @@
                         <option value="Other">Other</option>
                     </select>
                 </div>
+                
+                <!-- Photo Upload (Optional) -->
                 <div class="form-group">
-                    <label>Upload Photograph (Max 10MB) *</label>
-                    <input type="file" id="photo" accept=".jpg,.jpeg,.png" required>
+                    <label>Upload Photograph (Optional - Max 10MB)</label>
+                    <input type="file" id="photo" accept=".jpg,.jpeg,.png">
                 </div>
+                
+                <!-- PDF Upload (Optional) -->
                 <div class="form-group">
-                    <label>Upload PDF Documents (Max 10MB) *</label>
-                    <input type="file" id="pdf" accept=".pdf" required>
+                    <label>Upload PDF Documents (Optional - Max 10MB)</label>
+                    <input type="file" id="pdf" accept=".pdf">
                 </div>
+                
                 <div class="form-group">
                     <label>Additional Instructions</label>
                     <textarea id="instructions" rows="3" placeholder="Any specific details..."></textarea>
@@ -92,9 +98,8 @@
         <div class="payment-box">
             <p><strong>UPI Name:</strong> Sudhira Kumar</p>
             <p><strong>UPI ID:</strong> <span id="upiId">ksudhira05-2@okicici</span></p>
-            <!-- Ensure you save the image as assets/upi-qr.jpeg -->
             <img src="assets/upi-qr.jpeg" alt="UPI QR Code" class="qr-image">
-            <button class="btn" onclick="copyUPI()" style="max-width: 200px;">Copy UPI ID</button>
+            <button class="btn" onclick="copyUPI()" style="max-width: 250px; margin: 0 auto;">Copy UPI ID</button>
             <p style="margin-top: 15px; font-size: 14px; color: var(--text-light);">Please complete the payment and keep the screenshot. We will contact you on WhatsApp.</p>
         </div>
     </div>
@@ -114,6 +119,20 @@
 
     <script src="config.js"></script>
     <script>
+        // Mobile Menu Toggle Logic
+        const menuBtn = document.getElementById('mobile-menu-btn');
+        const navLinks = document.getElementById('nav-links');
+
+        menuBtn.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+        });
+
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                navLinks.classList.remove('active');
+            });
+        });
+
         function copyUPI() {
             navigator.clipboard.writeText("ksudhira05-2@okicici");
             alert("UPI ID copied to clipboard!");
@@ -129,35 +148,48 @@
             const phone = document.getElementById('phone').value;
             const service = document.getElementById('service').value;
             const instructions = document.getElementById('instructions').value;
+            
+            // Get files (can be undefined if not selected)
             const photoFile = document.getElementById('photo').files[0];
             const pdfFile = document.getElementById('pdf').files[0];
 
-            // Validation for 10MB
-            if (photoFile.size > 10 * 1024 * 1024 || pdfFile.size > 10 * 1024 * 1024) {
-                alert("File size must be less than 10MB.");
+            // Size Validation (Only check if file exists)
+            if (photoFile && photoFile.size > 10 * 1024 * 1024) {
+                alert("Photograph size must be less than 10MB.");
+                btn.textContent = 'Submit Application';
+                btn.disabled = false;
+                return;
+            }
+            if (pdfFile && pdfFile.size > 10 * 1024 * 1024) {
+                alert("PDF size must be less than 10MB.");
                 btn.textContent = 'Submit Application';
                 btn.disabled = false;
                 return;
             }
 
             try {
-                // Generate unique ID
                 const uniqueAppId = 'LIVE-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-                
-                // 1. Upload Photo
-                const photoExt = photoFile.name.split('.').pop();
-                const photoPath = `${uniqueAppId}/photo.${photoExt}`;
-                const { error: photoError } = await supabaseClient.storage
-                    .from('customer-documents')
-                    .upload(photoPath, photoFile);
-                if (photoError) throw photoError;
+                let photoPath = null;
+                let pdfPath = null;
 
-                // 2. Upload PDF
-                const pdfPath = `${uniqueAppId}/document.pdf`;
-                const { error: pdfError } = await supabaseClient.storage
-                    .from('customer-documents')
-                    .upload(pdfPath, pdfFile);
-                if (pdfError) throw pdfError;
+                // 1. Upload Photo (If selected)
+                if (photoFile) {
+                    const photoExt = photoFile.name.split('.').pop();
+                    photoPath = `${uniqueAppId}/photo.${photoExt}`;
+                    const { error: photoError } = await supabaseClient.storage
+                        .from('customer-documents')
+                        .upload(photoPath, photoFile);
+                    if (photoError) throw photoError;
+                }
+
+                // 2. Upload PDF (If selected)
+                if (pdfFile) {
+                    pdfPath = `${uniqueAppId}/document.pdf`;
+                    const { error: pdfError } = await supabaseClient.storage
+                        .from('customer-documents')
+                        .upload(pdfPath, pdfFile);
+                    if (pdfError) throw pdfError;
+                }
 
                 // 3. Insert into Database
                 const { error: dbError } = await supabaseClient
@@ -168,8 +200,8 @@
                         phone: phone,
                         service: service,
                         instructions: instructions,
-                        photo_path: photoPath,
-                        pdf_path: pdfPath
+                        photo_path: photoPath, // Will be null if not uploaded
+                        pdf_path: pdfPath      // Will be null if not uploaded
                     }]);
                 if (dbError) throw dbError;
 
