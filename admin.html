@@ -7,22 +7,87 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Chhote buttons ke liye extra styling */
-        .btn-action {
-            padding: 5px 8px;
-            font-size: 11px;
-            width: auto;
-            margin: 2px;
-            border-radius: 4px;
+        /* ==== PROFESSIONAL TABLE STYLING ==== */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            background: var(--white);
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
-        .btn-view { background-color: var(--primary); color: white; border: none; cursor: pointer;}
-        .btn-download { background-color: #2c3e50; color: white; border: none; cursor: pointer;}
+
+        table {
+            width: 100%;
+            min-width: 900px; /* Force scroll on mobile */
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: var(--primary);
+            color: var(--white);
+            text-align: left;
+            padding: 14px 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle; /* Text ko center me rakhega */
+        }
+
+        tr:hover {
+            background-color: #f9f9f9; /* Hover effect */
+        }
+
+        /* Customer Info Styling */
+        .customer-name { font-weight: 600; color: var(--text-dark); margin-bottom: 2px;}
+        .customer-phone { font-size: 12px; color: var(--text-light); }
+        
+        /* ID & Date Styling */
+        .date-text { font-weight: 500; margin-bottom: 2px;}
+        .id-text { font-size: 11px; color: #888; font-family: monospace;}
+
+        /* Action Buttons Styling */
+        .action-buttons {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .btn-sm {
+            padding: 6px 10px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .btn-sm:hover { opacity: 0.8; }
+        
+        .btn-view { background-color: #e3f2fd; color: #1976d2; }
+        .btn-download { background-color: #e8f5e9; color: #2e7d32; }
+
+        /* Status Dropdown Styling */
+        .status-select {
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            outline: none;
+        }
     </style>
 </head>
 <body>
 
     <!-- Login Screen -->
-    <div id="loginScreen" style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+    <div id="loginScreen" style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #f4f7f6;">
         <div class="form-container" style="width: 100%; max-width: 400px;">
             <h2 style="text-align: center; color: var(--primary); margin-bottom: 20px;">Admin Login</h2>
             <form id="loginForm">
@@ -44,22 +109,22 @@
     <div id="dashboard" style="display: none;">
         <header>
             <div class="logo">liveSEVA Admin</div>
-            <button class="btn" style="width: auto; padding: 8px 16px;" onclick="logout()">Logout</button>
+            <button class="btn" style="width: auto; padding: 8px 16px; background-color: #d32f2f;" onclick="logout()">Logout</button>
         </header>
 
         <div class="container">
             <h2 class="section-title">Applications Dashboard</h2>
             
             <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <input type="text" id="searchInput" placeholder="Search by Name, Mobile, or ID" style="padding: 10px; border-radius: 8px; border: 1px solid #ccc; flex-grow: 1;">
-                <button class="btn" style="width: auto;" onclick="loadSubmissions()">Refresh</button>
+                <input type="text" id="searchInput" placeholder="🔍 Search by Name, Mobile, or ID" style="padding: 12px; border-radius: 8px; border: 1px solid #ccc; flex-grow: 1;">
+                <button class="btn" style="width: auto; padding: 12px 20px;" onclick="loadSubmissions()">Refresh</button>
             </div>
 
             <div class="table-responsive">
                 <table id="appsTable">
                     <thead>
                         <tr>
-                            <th>Date</th>
+                            <th>Date & ID</th>
                             <th>Customer</th>
                             <th>Service</th>
                             <th>Files</th>
@@ -120,40 +185,53 @@
         function renderTable(subs) {
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
-            if (subs.length === 0) return tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No data found.</td></tr>';
+            
+            if (subs.length === 0) {
+                return tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 30px; color: #888;">No applications found.</td></tr>';
+            }
 
             subs.forEach(sub => {
                 const tr = document.createElement('tr');
-                const date = new Date(sub.created_at).toLocaleString();
                 
-                // Files Array (JSONB) ko parse karke View aur Download buttons banana
+                // Date format
+                const dateObj = new Date(sub.created_at);
+                const dateStr = dateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                const timeStr = dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                
+                // Files HTML
                 let filesHtml = '';
                 if (sub.files && sub.files.length > 0) {
+                    filesHtml = '<div class="action-buttons">';
                     sub.files.forEach(file => {
-                        // File ka naam nikalne ke liye
                         const fileName = file.name || `${file.type}.${file.path.split('.').pop()}`;
                         filesHtml += `
-                            <div style="display: flex; gap: 5px; margin-bottom: 5px;">
-                                <button class="btn-action btn-view" onclick="viewFile('${file.path}')">👁 View</button>
-                                <button class="btn-action btn-download" onclick="downloadFile('${file.path}', '${fileName}')">⬇ Download</button>
-                            </div>
+                            <button class="btn-sm btn-view" onclick="viewFile('${file.path}')">👁 View</button>
+                            <button class="btn-sm btn-download" onclick="downloadFile('${file.path}', '${fileName}')">⬇ Download</button>
                         `;
                     });
+                    filesHtml += '</div>';
                 } else {
-                    filesHtml = '<span style="color: #888;">No files</span>';
+                    filesHtml = '<span style="color: #888; font-style: italic;">No files</span>';
                 }
 
+                // Row HTML Setup
                 tr.innerHTML = `
-                    <td>${date}<br><small>ID: ${sub.id.substring(0,8)}...</small></td>
-                    <td>${sub.customer_name}<br><small>${sub.mobile}</small></td>
-                    <td>${sub.service}</td>
+                    <td>
+                        <div class="date-text">${dateStr}</div>
+                        <div class="id-text">${timeStr} | ID: ${sub.id.substring(0,8)}</div>
+                    </td>
+                    <td>
+                        <div class="customer-name">${sub.customer_name}</div>
+                        <div class="customer-phone">📞 ${sub.mobile}</div>
+                    </td>
+                    <td><strong>${sub.service}</strong></td>
                     <td>${filesHtml}</td>
                     <td>
-                        <select onchange="updateStatus('${sub.id}', this.value)" style="padding: 5px; border-radius: 4px;">
-                            <option value="Pending" ${sub.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                            <option value="Processing" ${sub.status === 'Processing' ? 'selected' : ''}>Processing</option>
-                            <option value="Completed" ${sub.status === 'Completed' ? 'selected' : ''}>Completed</option>
-                            <option value="Rejected" ${sub.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                        <select class="status-select" onchange="updateStatus('${sub.id}', this.value)">
+                            <option value="Pending" ${sub.status === 'Pending' ? 'selected' : ''}>⏳ Pending</option>
+                            <option value="Processing" ${sub.status === 'Processing' ? 'selected' : ''}>⚙️ Processing</option>
+                            <option value="Completed" ${sub.status === 'Completed' ? 'selected' : ''}>✅ Completed</option>
+                            <option value="Rejected" ${sub.status === 'Rejected' ? 'selected' : ''}>❌ Rejected</option>
                         </select>
                     </td>
                 `;
@@ -174,46 +252,31 @@
         async function updateStatus(id, newStatus) {
             const { error } = await supabaseClient.from('submissions').update({ status: newStatus }).eq('id', id);
             if (error) alert('Error updating status: ' + error.message);
-            else loadSubmissions();
+            // No need to reload full table for smooth UX, dropdown already reflects it
         }
 
-        // File View karne ke liye (Nayi Tab mein khulega)
         async function viewFile(path) {
             const { data, error } = await supabaseClient.storage.from('customer-documents').createSignedUrl(path, 60);
             if (error) alert("Error: " + error.message);
             else window.open(data.signedUrl, '_blank');
         }
 
-        // File Download karne ke liye (Blob method use karke)
         async function downloadFile(path, originalFileName) {
             try {
-                // 1. 60 seconds ke liye secure temporary link banayein
                 const { data, error } = await supabaseClient.storage.from('customer-documents').createSignedUrl(path, 60);
                 if (error) throw error;
-
-                // 2. Us link se file ko fetch karein
                 const response = await fetch(data.signedUrl);
                 if (!response.ok) throw new Error("File fetch failed");
-                
-                // 3. File data ko Blob mein convert karein
                 const blob = await response.blob();
-                
-                // 4. Ek temporary download link banayein
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = url;
-                
-                // File ka naam set karein (Jaise: photo.jpg ya document.pdf)
                 a.download = originalFileName; 
-                
                 document.body.appendChild(a);
-                a.click(); // Download trigger karein
-                
-                // 5. Memory clean karein
+                a.click(); 
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(a);
-
             } catch (error) {
                 console.error(error);
                 alert("Download Error: " + error.message);
