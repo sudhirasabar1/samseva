@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1b8a44">
     <title>SAMSEVA - Your Trusted Digital Service Center</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -72,15 +73,15 @@
                     </select>
                 </div>
                 
-                <!-- Photo Upload (Optional) -->
+                <!-- Optional Photo Upload -->
                 <div class="form-group">
-                    <label>Upload Photograph (Optional - Max 10MB)</label>
+                    <label>Upload Photograph (Optional)</label>
                     <input type="file" id="photo" accept=".jpg,.jpeg,.png">
                 </div>
                 
-                <!-- PDF Upload (Optional) -->
+                <!-- Optional PDF Upload -->
                 <div class="form-group">
-                    <label>Upload PDF Documents (Optional - Max 10MB)</label>
+                    <label>Upload PDF Documents (Optional)</label>
                     <input type="file" id="pdf" accept=".pdf">
                 </div>
                 
@@ -99,8 +100,8 @@
             <p><strong>UPI Name:</strong> Sudhira Kumar</p>
             <p><strong>UPI ID:</strong> <span id="upiId">ksudhira05-2@okicici</span></p>
             <img src="assets/upi-qr.jpeg" alt="UPI QR Code" class="qr-image">
-            <button class="btn" onclick="copyUPI()" style="max-width: 250px; margin: 0 auto;">Copy UPI ID</button>
-            <p style="margin-top: 15px; font-size: 14px; color: var(--text-light);">Please complete the payment and keep the screenshot. We will contact you on WhatsApp.</p>
+            <button class="btn" onclick="copyUPI()" style="background-color: var(--primary-dark);">Copy UPI ID</button>
+            <p style="margin-top: 15px; font-size: 13px; color: var(--text-light);">Please complete the payment and keep the screenshot. We will contact you on WhatsApp.</p>
         </div>
     </div>
 
@@ -108,8 +109,7 @@
         <div class="contact-section">
             <h2>Need Help?</h2>
             <p>Ladurma, Mohana, Gajapati, Odisha, India</p>
-            <p style="margin: 15px 0;"><strong>Helpline:</strong> 6301673296</p>
-            <a href="https://wa.me/916301673296" target="_blank" class="btn" style="display: inline-block; width: auto; background-color: #25D366;">Chat on WhatsApp</a>
+            <p style="margin: 10px 0;"><strong>Helpline:</strong> 6301673296</p>
         </div>
     </div>
 
@@ -117,9 +117,15 @@
         <p>&copy; 2024 liveSEVA. All rights reserved.</p>
     </footer>
 
+    <!-- Sticky Mobile Bottom Action Bar -->
+    <div class="mobile-action-bar">
+        <a href="tel:6301673296" class="btn-call">📞 Call Now</a>
+        <a href="https://wa.me/916301673296" target="_blank" class="btn-wa">💬 WhatsApp</a>
+    </div>
+
     <script src="config.js"></script>
     <script>
-        // Mobile Menu Toggle Logic
+        // Mobile Menu Toggle
         const menuBtn = document.getElementById('mobile-menu-btn');
         const navLinks = document.getElementById('nav-links');
 
@@ -135,9 +141,10 @@
 
         function copyUPI() {
             navigator.clipboard.writeText("ksudhira05-2@okicici");
-            alert("UPI ID copied to clipboard!");
+            alert("UPI ID copied!");
         }
 
+        // Form Submit Logic (With Optional Files)
         document.getElementById('applicationForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
@@ -149,60 +156,49 @@
             const service = document.getElementById('service').value;
             const instructions = document.getElementById('instructions').value;
             
-            // Get files (can be undefined if not selected)
             const photoFile = document.getElementById('photo').files[0];
             const pdfFile = document.getElementById('pdf').files[0];
 
-            // Size Validation (Only check if file exists)
             if (photoFile && photoFile.size > 10 * 1024 * 1024) {
-                alert("Photograph size must be less than 10MB.");
+                alert("Photograph must be less than 10MB.");
                 btn.textContent = 'Submit Application';
                 btn.disabled = false;
                 return;
             }
             if (pdfFile && pdfFile.size > 10 * 1024 * 1024) {
-                alert("PDF size must be less than 10MB.");
+                alert("PDF must be less than 10MB.");
                 btn.textContent = 'Submit Application';
                 btn.disabled = false;
                 return;
             }
 
             try {
-                const uniqueAppId = 'LIVE-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+                const uniqueAppId = 'LIVE-' + Date.now() + '-' + Math.floor(Math.random() * 100);
                 let photoPath = null;
                 let pdfPath = null;
 
-                // 1. Upload Photo (If selected)
                 if (photoFile) {
                     const photoExt = photoFile.name.split('.').pop();
                     photoPath = `${uniqueAppId}/photo.${photoExt}`;
-                    const { error: photoError } = await supabaseClient.storage
-                        .from('customer-documents')
-                        .upload(photoPath, photoFile);
+                    const { error: photoError } = await supabaseClient.storage.from('customer-documents').upload(photoPath, photoFile);
                     if (photoError) throw photoError;
                 }
 
-                // 2. Upload PDF (If selected)
                 if (pdfFile) {
                     pdfPath = `${uniqueAppId}/document.pdf`;
-                    const { error: pdfError } = await supabaseClient.storage
-                        .from('customer-documents')
-                        .upload(pdfPath, pdfFile);
+                    const { error: pdfError } = await supabaseClient.storage.from('customer-documents').upload(pdfPath, pdfFile);
                     if (pdfError) throw pdfError;
                 }
 
-                // 3. Insert into Database
-                const { error: dbError } = await supabaseClient
-                    .from('applications')
-                    .insert([{
-                        application_id: uniqueAppId,
-                        customer_name: name,
-                        phone: phone,
-                        service: service,
-                        instructions: instructions,
-                        photo_path: photoPath, // Will be null if not uploaded
-                        pdf_path: pdfPath      // Will be null if not uploaded
-                    }]);
+                const { error: dbError } = await supabaseClient.from('applications').insert([{
+                    application_id: uniqueAppId,
+                    customer_name: name,
+                    phone: phone,
+                    service: service,
+                    instructions: instructions,
+                    photo_path: photoPath,
+                    pdf_path: pdfPath
+                }]);
                 if (dbError) throw dbError;
 
                 alert(`Application Submitted Successfully!\nYour Application ID is: ${uniqueAppId}\nPlease save this ID.`);
