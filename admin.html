@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - liveSEVA</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+        <div class="form-container" style="width: 100%; max-width: 400px;">
+            <h2 style="text-align: center; color: var(--primary); margin-bottom: 20px;">Admin Login</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="adminEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="adminPassword" required>
+                </div>
+                <button type="submit" class="btn" id="loginBtn">Login</button>
+            </form>
+            <p id="loginError" style="color: red; text-align: center; margin-top: 10px;"></p>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" style="display: none;">
+        <header>
+            <div class="logo">liveSEVA Admin</div>
+            <button class="btn" style="width: auto; padding: 8px 16px;" onclick="logout()">Logout</button>
+        </header>
+
+        <div class="container">
+            <h2 class="section-title">Applications Dashboard</h2>
+            
+            <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <input type="text" id="searchInput" placeholder="Search by Name, Phone, or App ID" style="padding: 10px; border-radius: 8px; border: 1px solid #ccc; flex-grow: 1;">
+                <select id="statusFilter" style="padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+                    <option value="All">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Processing">Processing</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Rejected">Rejected</option>
+                </select>
+                <button class="btn" style="width: auto;" onclick="loadApplications()">Refresh</button>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table id="appsTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>App ID</th>
+                            <th>Customer</th>
+                            <th>Service</th>
+                            <th>Files</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Rows injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        let allApplications = [];
+
+        // Check session on load
+        async function checkSession() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                loadApplications();
+            }
+        }
+        checkSession();
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPassword').value;
+            const btn = document.getElementById('loginBtn');
+            btn.textContent = 'Logging in...';
+
+            const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            
+            if (error) {
+                document.getElementById('loginError').textContent = error.message;
+                btn.textContent = 'Login';
+            } else {
+                document.getElementById('loginError').textContent = '';
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                loadApplications();
+            }
+        });
+
+        // Logout
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            window.location.reload();
+        }
+
+        // Load Data
+        async function loadApplications() {
+            const { data, error } = await supabaseClient
+                .from('applications')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                alert('Error loading data: ' + error.message);
+                return;
+            }
+            allApplications = data;
+            renderTable(allApplications);
+        }
+
+        // Render Table
+        function renderTable(apps) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            if (apps.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No applications found.</td></tr>';
+                return;
+            }
+
+            apps.forEach(app => {
+                const tr = document.createElement('tr');
+                const date = new Date(app.created_at).toLocaleString();
+                
+                tr.innerHTML = `
+                    <td>${date}</td>
+                    <td><strong>${app.application_id}</strong></td>
+                    <td>${app.customer_name}<br><small>${app.phone}</small></td>
+                    <td>${app.service}</td>
+                    <td>
+                        <button class="btn" style="padding: 5px 10px; font-size: 12px; width: auto; margin-bottom: 5px;" onclick="viewFile('${app.photo_path}')">View Photo</button>
+                        <button class="btn" style="padding: 5px 10px; font-size: 12px; width: auto;" onclick="viewFile('${app.pdf_path}')">View PDF</button>
+                    </td>
+                    <td>
+                        <select onchange="updateStatus('${app.id}', this.value)" style="padding: 5px; border-radius: 4px;">
+                            <option value="Pending" ${app.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                            <option value="Processing" ${app.status === 'Processing' ? 'selected' : ''}>Processing</option>
+                            <option value="Completed" ${app.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                            <option value="Rejected" ${app.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                        </select>
+                    </td>
+                    <td>
+                        <span class="status-badge status-${app.status}">${app.status}</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Search & Filter
+        function filterData() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+
+            const filtered = allApplications.filter(app => {
+                const matchesSearch = app.customer_name.toLowerCase().includes(search) || 
+                                      app.phone.includes(search) || 
+                                      app.application_id.toLowerCase().includes(search);
+                const matchesStatus = status === 'All' || app.status === status;
+                return matchesSearch && matchesStatus;
+            });
+            renderTable(filtered);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', filterData);
+        document.getElementById('statusFilter').addEventListener('change', filterData);
+
+        // Update Status
+        async function updateStatus(id, newStatus) {
+            const { error } = await supabaseClient
+                .from('applications')
+                .update({ status: newStatus })
+                .eq('id', id);
+
+            if (error) {
+                alert('Error updating status: ' + error.message);
+            } else {
+                loadApplications(); // Reload to reflect changes properly
+            }
+        }
+
+        // View File (Generates Temporary Signed URL)
+        async function viewFile(path) {
+            if (!path) {
+                alert("No file uploaded.");
+                return;
+            }
+            // Signed URL valid for 60 seconds
+            const { data, error } = await supabaseClient
+                .storage
+                .from('customer-documents')
+                .createSignedUrl(path, 60);
+
+            if (error) {
+                alert("Error generating file link: " + error.message);
+            } else {
+                window.open(data.signedUrl, '_blank');
+            }
+        }
+    </script>
+</body>
+</html>

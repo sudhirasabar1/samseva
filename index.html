@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>liveSEVA - Your Trusted Digital Service Center</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header>
+        <div class="logo">liveSEVA</div>
+        <nav class="nav-links">
+            <a href="#services">Services</a>
+            <a href="#apply">Apply</a>
+            <a href="#payment">Payment</a>
+            <a href="#contact">Contact</a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <h1>Your Trusted Digital Service Center</h1>
+        <p>Fast, secure, and reliable online services at your fingertips.</p>
+    </section>
+
+    <div class="container" id="services">
+        <h2 class="section-title">Available Services</h2>
+        <div class="grid">
+            <div class="card">
+                <h3>PAN Card Services</h3>
+                <p>New PAN application, correction, and linking.</p>
+            </div>
+            <div class="card">
+                <h3>Aadhaar Services</h3>
+                <p>Address update, mobile linking, and print.</p>
+            </div>
+            <div class="card">
+                <h3>Government Schemes</h3>
+                <p>Apply for state and central government schemes.</p>
+            </div>
+            <div class="card">
+                <h3>Certificates</h3>
+                <p>Income, caste, and residence certificates.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="apply">
+        <h2 class="section-title">Apply for Services</h2>
+        <div class="form-container">
+            <form id="applicationForm">
+                <div class="form-group">
+                    <label>Full Name *</label>
+                    <input type="text" id="name" required placeholder="Enter your full name">
+                </div>
+                <div class="form-group">
+                    <label>Mobile Number *</label>
+                    <input type="tel" id="phone" required pattern="[0-9]{10}" placeholder="10-digit mobile number">
+                </div>
+                <div class="form-group">
+                    <label>Select Service *</label>
+                    <select id="service" required>
+                        <option value="">-- Select a Service --</option>
+                        <option value="PAN Card">PAN Card</option>
+                        <option value="Aadhaar Update">Aadhaar Update</option>
+                        <option value="Income Certificate">Income Certificate</option>
+                        <option value="Caste Certificate">Caste Certificate</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Upload Photograph (Max 10MB) *</label>
+                    <input type="file" id="photo" accept=".jpg,.jpeg,.png" required>
+                </div>
+                <div class="form-group">
+                    <label>Upload PDF Documents (Max 10MB) *</label>
+                    <input type="file" id="pdf" accept=".pdf" required>
+                </div>
+                <div class="form-group">
+                    <label>Additional Instructions</label>
+                    <textarea id="instructions" rows="3" placeholder="Any specific details..."></textarea>
+                </div>
+                <button type="submit" class="btn" id="submitBtn">Submit Application</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="container" id="payment">
+        <h2 class="section-title">Scan & Pay</h2>
+        <div class="payment-box">
+            <p><strong>UPI Name:</strong> Sudhira Kumar</p>
+            <p><strong>UPI ID:</strong> <span id="upiId">ksudhira05-2@okicici</span></p>
+            <!-- Ensure you save the image as assets/upi-qr.jpeg -->
+            <img src="assets/upi-qr.jpeg" alt="UPI QR Code" class="qr-image">
+            <button class="btn" onclick="copyUPI()" style="max-width: 200px;">Copy UPI ID</button>
+            <p style="margin-top: 15px; font-size: 14px; color: var(--text-light);">Please complete the payment and keep the screenshot. We will contact you on WhatsApp.</p>
+        </div>
+    </div>
+
+    <div class="container" id="contact">
+        <div class="contact-section">
+            <h2>Need Help?</h2>
+            <p>Ladurma, Mohana, Gajapati, Odisha, India</p>
+            <p style="margin: 15px 0;"><strong>Helpline:</strong> 6301673296</p>
+            <a href="https://wa.me/916301673296" target="_blank" class="btn" style="display: inline-block; width: auto; background-color: #25D366;">Chat on WhatsApp</a>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 liveSEVA. All rights reserved.</p>
+    </footer>
+
+    <script src="config.js"></script>
+    <script>
+        function copyUPI() {
+            navigator.clipboard.writeText("ksudhira05-2@okicici");
+            alert("UPI ID copied to clipboard!");
+        }
+
+        document.getElementById('applicationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.textContent = 'Submitting...';
+            btn.disabled = true;
+
+            const name = document.getElementById('name').value;
+            const phone = document.getElementById('phone').value;
+            const service = document.getElementById('service').value;
+            const instructions = document.getElementById('instructions').value;
+            const photoFile = document.getElementById('photo').files[0];
+            const pdfFile = document.getElementById('pdf').files[0];
+
+            // Validation for 10MB
+            if (photoFile.size > 10 * 1024 * 1024 || pdfFile.size > 10 * 1024 * 1024) {
+                alert("File size must be less than 10MB.");
+                btn.textContent = 'Submit Application';
+                btn.disabled = false;
+                return;
+            }
+
+            try {
+                // Generate unique ID
+                const uniqueAppId = 'LIVE-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+                
+                // 1. Upload Photo
+                const photoExt = photoFile.name.split('.').pop();
+                const photoPath = `${uniqueAppId}/photo.${photoExt}`;
+                const { error: photoError } = await supabaseClient.storage
+                    .from('customer-documents')
+                    .upload(photoPath, photoFile);
+                if (photoError) throw photoError;
+
+                // 2. Upload PDF
+                const pdfPath = `${uniqueAppId}/document.pdf`;
+                const { error: pdfError } = await supabaseClient.storage
+                    .from('customer-documents')
+                    .upload(pdfPath, pdfFile);
+                if (pdfError) throw pdfError;
+
+                // 3. Insert into Database
+                const { error: dbError } = await supabaseClient
+                    .from('applications')
+                    .insert([{
+                        application_id: uniqueAppId,
+                        customer_name: name,
+                        phone: phone,
+                        service: service,
+                        instructions: instructions,
+                        photo_path: photoPath,
+                        pdf_path: pdfPath
+                    }]);
+                if (dbError) throw dbError;
+
+                alert(`Application Submitted Successfully!\nYour Application ID is: ${uniqueAppId}\nPlease save this ID.`);
+                document.getElementById('applicationForm').reset();
+
+            } catch (error) {
+                console.error(error);
+                alert('Error submitting application: ' + error.message);
+            } finally {
+                btn.textContent = 'Submit Application';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
