@@ -4,16 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1b8a44">
-    <title>SAMSEVA - Your Trusted Digital Service Center</title>
+    <title>liveSEVA - Your Trusted Digital Service Center</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
     <header>
-        <div class="logo">SAMSEVA</div>
+        <div class="logo">liveSEVA</div>
         <button class="menu-toggle" id="mobile-menu-btn">☰</button>
-        
         <nav class="nav-links" id="nav-links">
             <a href="#services">Services</a>
             <a href="#apply">Apply</a>
@@ -30,22 +29,10 @@
     <div class="container" id="services">
         <h2 class="section-title">Available Services</h2>
         <div class="grid">
-            <div class="card">
-                <h3>PAN Card Services</h3>
-                <p>New PAN application, correction, and linking.</p>
-            </div>
-            <div class="card">
-                <h3>Aadhaar Services</h3>
-                <p>Address update, mobile linking, and print.</p>
-            </div>
-            <div class="card">
-                <h3>Government Schemes</h3>
-                <p>Apply for state and central government schemes.</p>
-            </div>
-            <div class="card">
-                <h3>Certificates</h3>
-                <p>Income, caste, and residence certificates.</p>
-            </div>
+            <div class="card"><h3>PAN Card</h3><p>New application & correction.</p></div>
+            <div class="card"><h3>Aadhaar Update</h3><p>Address & mobile linking.</p></div>
+            <div class="card"><h3>Certificates</h3><p>Income, caste & residence.</p></div>
+            <div class="card"><h3>Govt Schemes</h3><p>State & central schemes.</p></div>
         </div>
     </div>
 
@@ -73,13 +60,11 @@
                     </select>
                 </div>
                 
-                <!-- Optional Photo Upload -->
                 <div class="form-group">
                     <label>Upload Photograph (Optional)</label>
-                    <input type="file" id="photo" accept=".jpg,.jpeg,.png">
+                    <input type="file" id="photo" accept=".jpg,.jpeg,.png,.webp">
                 </div>
                 
-                <!-- Optional PDF Upload -->
                 <div class="form-group">
                     <label>Upload PDF Documents (Optional)</label>
                     <input type="file" id="pdf" accept=".pdf">
@@ -108,7 +93,7 @@
     <div class="container" id="contact">
         <div class="contact-section">
             <h2>Need Help?</h2>
-            <p>Ladurma, Mohana, Gajapati, Odisha, India</p>
+            <p>Ladurma, Mohana, Gajapati, Odisha</p>
             <p style="margin: 10px 0;"><strong>Helpline:</strong> 6301673296</p>
         </div>
     </div>
@@ -117,7 +102,6 @@
         <p>&copy; 2024 liveSEVA. All rights reserved.</p>
     </footer>
 
-    <!-- Sticky Mobile Bottom Action Bar -->
     <div class="mobile-action-bar">
         <a href="tel:6301673296" class="btn-call">📞 Call Now</a>
         <a href="https://wa.me/916301673296" target="_blank" class="btn-wa">💬 WhatsApp</a>
@@ -125,26 +109,16 @@
 
     <script src="config.js"></script>
     <script>
-        // Mobile Menu Toggle
         const menuBtn = document.getElementById('mobile-menu-btn');
         const navLinks = document.getElementById('nav-links');
-
-        menuBtn.addEventListener('click', () => {
-            navLinks.classList.toggle('active');
-        });
-
-        navLinks.querySelectorAll('a').forEach(link => {
-            link.addEventListener('click', () => {
-                navLinks.classList.remove('active');
-            });
-        });
+        menuBtn.addEventListener('click', () => navLinks.classList.toggle('active'));
+        navLinks.querySelectorAll('a').forEach(link => link.addEventListener('click', () => navLinks.classList.remove('active')));
 
         function copyUPI() {
             navigator.clipboard.writeText("ksudhira05-2@okicici");
             alert("UPI ID copied!");
         }
 
-        // Form Submit Logic (With Optional Files)
         document.getElementById('applicationForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
@@ -159,54 +133,49 @@
             const photoFile = document.getElementById('photo').files[0];
             const pdfFile = document.getElementById('pdf').files[0];
 
-            if (photoFile && photoFile.size > 10 * 1024 * 1024) {
-                alert("Photograph must be less than 10MB.");
-                btn.textContent = 'Submit Application';
-                btn.disabled = false;
-                return;
-            }
-            if (pdfFile && pdfFile.size > 10 * 1024 * 1024) {
-                alert("PDF must be less than 10MB.");
-                btn.textContent = 'Submit Application';
-                btn.disabled = false;
-                return;
-            }
+            if (photoFile && photoFile.size > 10 * 1024 * 1024) return alert("Photo > 10MB");
+            if (pdfFile && pdfFile.size > 10 * 1024 * 1024) return alert("PDF > 10MB");
 
             try {
-                const uniqueAppId = 'LIVE-' + Date.now() + '-' + Math.floor(Math.random() * 100);
-                let photoPath = null;
-                let pdfPath = null;
+                // UUID Generate karein
+                const uniqueId = crypto.randomUUID();
+                let uploadedFiles = []; // JSON Array banayenge
 
+                // Photo Upload
                 if (photoFile) {
                     const photoExt = photoFile.name.split('.').pop();
-                    photoPath = `${uniqueAppId}/photo.${photoExt}`;
-                    const { error: photoError } = await supabaseClient.storage.from('customer-documents').upload(photoPath, photoFile);
-                    if (photoError) throw photoError;
+                    const photoPath = `${uniqueId}/photo.${photoExt}`;
+                    const { error } = await supabaseClient.storage.from('customer-documents').upload(photoPath, photoFile);
+                    if (error) throw error;
+                    uploadedFiles.push({ type: 'photo', path: photoPath, name: photoFile.name });
                 }
 
+                // PDF Upload
                 if (pdfFile) {
-                    pdfPath = `${uniqueAppId}/document.pdf`;
-                    const { error: pdfError } = await supabaseClient.storage.from('customer-documents').upload(pdfPath, pdfFile);
-                    if (pdfError) throw pdfError;
+                    const pdfPath = `${uniqueId}/document.pdf`;
+                    const { error } = await supabaseClient.storage.from('customer-documents').upload(pdfPath, pdfFile);
+                    if (error) throw error;
+                    uploadedFiles.push({ type: 'pdf', path: pdfPath, name: pdfFile.name });
                 }
 
-                const { error: dbError } = await supabaseClient.from('applications').insert([{
-                    application_id: uniqueAppId,
+                // Database mein insert karein (Aapke schema ke hisaab se)
+                const { error: dbError } = await supabaseClient.from('submissions').insert([{
+                    id: uniqueId,
                     customer_name: name,
-                    phone: phone,
+                    mobile: phone,
                     service: service,
                     instructions: instructions,
-                    photo_path: photoPath,
-                    pdf_path: pdfPath
+                    files: uploadedFiles // JSON Array
                 }]);
+                
                 if (dbError) throw dbError;
 
-                alert(`Application Submitted Successfully!\nYour Application ID is: ${uniqueAppId}\nPlease save this ID.`);
+                alert(`Application Submitted Successfully!\nYour ID is: ${uniqueId}`);
                 document.getElementById('applicationForm').reset();
 
             } catch (error) {
                 console.error(error);
-                alert('Error submitting application: ' + error.message);
+                alert('Error: ' + error.message);
             } finally {
                 btn.textContent = 'Submit Application';
                 btn.disabled = false;
