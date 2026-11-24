@@ -7,6 +7,32 @@
     <title>SAMSEVA - Your Trusted Digital Service Center</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- 🔴 YAHAN APNA MONETAG GLOBAL/HEADER SCRIPT PASTE KAREIN (Agar verification script hai toh) -->
+    <!-- Example: <script src="https://your-monetag-domain.com/script.js" data-zone="12345"></script> -->
+    
+    <style>
+        /* Ads ke liye choti CSS taaki design kharab na ho */
+        .ad-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px 0;
+            background: #f0f0f0;
+            overflow: hidden;
+            min-height: 60px; /* Ad load hone tak jagah reserve rahegi */
+        }
+        .ad-header {
+            margin: 0 auto;
+            max-width: 100%;
+            border-bottom: 1px solid #ddd;
+        }
+        .ad-small {
+            margin: 15px auto;
+            border-radius: 8px;
+        }
+    </style>
 </head>
 <body>
 
@@ -20,6 +46,13 @@
             <a href="#contact">Contact</a>
         </nav>
     </header>
+
+    <!-- 🔴 HEADER BANNER AD (Yahan 728x90 ya mobile banner lagta hai) -->
+    <div class="ad-container ad-header">
+        <!-- Yahan apna Monetag Banner Ad Script paste karein -->
+        <!-- Example: <script> Monetag Banner Code </script> -->
+        <span style="color: #888; font-size: 12px;">[ Header Banner Ad Space ]</span>
+    </div>
 
     <section class="hero">
         <h1>Your Trusted Digital Service Center</h1>
@@ -36,6 +69,15 @@
         </div>
     </div>
 
+    <!-- 🔴 SMALL AD 1 (Services ke baad) -->
+    <div class="container">
+        <div class="ad-container ad-small">
+            <!-- Yahan apna Monetag Small Ad Script paste karein -->
+            <!-- Example: <script> Monetag Small Ad Code </script> -->
+            <span style="color: #888; font-size: 12px;">[ Small Ad Space ]</span>
+        </div>
+    </div>
+
     <div class="container" id="apply">
         <h2 class="section-title">Apply for Services</h2>
         <div class="form-container">
@@ -49,7 +91,6 @@
                     <input type="tel" id="phone" required pattern="[0-9]{10}" placeholder="10-digit mobile number">
                 </div>
                 
-                <!-- YAHAN SELECT SERVICE UPDATE KIYA GAYA HAI -->
                 <div class="form-group">
                     <label>Select Service *</label>
                     <select id="service" required>
@@ -78,6 +119,14 @@
         </div>
     </div>
 
+    <!-- 🔴 SMALL AD 2 (Form ke baad) -->
+    <div class="container">
+        <div class="ad-container ad-small">
+            <!-- Yahan apna dusra Monetag Small Ad Script paste karein (Optional) -->
+            <span style="color: #888; font-size: 12px;">[ Small Ad Space ]</span>
+        </div>
+    </div>
+
     <div class="container" id="payment">
         <h2 class="section-title">Scan & Pay</h2>
         <div class="payment-box">
@@ -98,7 +147,7 @@
     </div>
 
     <footer>
-        <p>&copy; 2024 liveSEVA. All rights reserved.</p>
+        <p>&copy; 2024 SAMSEVA. All rights reserved.</p>
     </footer>
 
     <div class="mobile-action-bar">
@@ -136,11 +185,9 @@
             if (pdfFile && pdfFile.size > 10 * 1024 * 1024) return alert("PDF > 10MB");
 
             try {
-                // UUID Generate karein
                 const uniqueId = crypto.randomUUID();
-                let uploadedFiles = []; // JSON Array banayenge
+                let uploadedFiles = []; 
 
-                // Photo Upload
                 if (photoFile) {
                     const photoExt = photoFile.name.split('.').pop();
                     const photoPath = `${uniqueId}/photo.${photoExt}`;
@@ -149,7 +196,6 @@
                     uploadedFiles.push({ type: 'photo', path: photoPath, name: photoFile.name });
                 }
 
-                // PDF Upload
                 if (pdfFile) {
                     const pdfPath = `${uniqueId}/document.pdf`;
                     const { error } = await supabaseClient.storage.from('customer-documents').upload(pdfPath, pdfFile);
@@ -157,14 +203,13 @@
                     uploadedFiles.push({ type: 'pdf', path: pdfPath, name: pdfFile.name });
                 }
 
-                // Database mein insert karein
                 const { error: dbError } = await supabaseClient.from('submissions').insert([{
                     id: uniqueId,
                     customer_name: name,
                     mobile: phone,
                     service: service,
                     instructions: instructions,
-                    files: uploadedFiles // JSON Array
+                    files: uploadedFiles 
                 }]);
                 
                 if (dbError) throw dbError;
