@@ -39,28 +39,19 @@
             <h2 class="section-title">Applications Dashboard</h2>
             
             <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <input type="text" id="searchInput" placeholder="Search by Name, Phone, or App ID" style="padding: 10px; border-radius: 8px; border: 1px solid #ccc; flex-grow: 1;">
-                <select id="statusFilter" style="padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
-                    <option value="All">All Statuses</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Processing">Processing</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Rejected">Rejected</option>
-                </select>
-                <button class="btn" style="width: auto;" onclick="loadApplications()">Refresh</button>
+                <input type="text" id="searchInput" placeholder="Search by Name, Mobile, or ID" style="padding: 10px; border-radius: 8px; border: 1px solid #ccc; flex-grow: 1;">
+                <button class="btn" style="width: auto;" onclick="loadSubmissions()">Refresh</button>
             </div>
 
-            <div style="overflow-x: auto;">
+            <div class="table-responsive">
                 <table id="appsTable">
                     <thead>
                         <tr>
                             <th>Date</th>
-                            <th>App ID</th>
                             <th>Customer</th>
                             <th>Service</th>
                             <th>Files</th>
                             <th>Status</th>
-                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
@@ -73,149 +64,105 @@
 
     <script src="config.js"></script>
     <script>
-        let allApplications = [];
+        let allSubmissions = [];
 
-        // Check session on load
         async function checkSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'block';
-                loadApplications();
+                loadSubmissions();
             }
         }
         checkSession();
 
-        // Login
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('adminEmail').value;
             const password = document.getElementById('adminPassword').value;
-            const btn = document.getElementById('loginBtn');
-            btn.textContent = 'Logging in...';
+            document.getElementById('loginBtn').textContent = 'Logging in...';
 
             const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-            
             if (error) {
                 document.getElementById('loginError').textContent = error.message;
-                btn.textContent = 'Login';
+                document.getElementById('loginBtn').textContent = 'Login';
             } else {
-                document.getElementById('loginError').textContent = '';
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'block';
-                loadApplications();
+                loadSubmissions();
             }
         });
 
-        // Logout
         async function logout() {
             await supabaseClient.auth.signOut();
             window.location.reload();
         }
 
-        // Load Data
-        async function loadApplications() {
-            const { data, error } = await supabaseClient
-                .from('applications')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                alert('Error loading data: ' + error.message);
-                return;
-            }
-            allApplications = data;
-            renderTable(allApplications);
+        async function loadSubmissions() {
+            // Aapke naye table ka naam 'submissions' hai
+            const { data, error } = await supabaseClient.from('submissions').select('*').order('created_at', { ascending: false });
+            if (error) return alert('Error: ' + error.message);
+            allSubmissions = data;
+            renderTable(allSubmissions);
         }
 
-        // Render Table
-        function renderTable(apps) {
+        function renderTable(subs) {
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
+            if (subs.length === 0) return tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No data found.</td></tr>';
 
-            if (apps.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No applications found.</td></tr>';
-                return;
-            }
-
-            apps.forEach(app => {
+            subs.forEach(sub => {
                 const tr = document.createElement('tr');
-                const date = new Date(app.created_at).toLocaleString();
+                const date = new Date(sub.created_at).toLocaleString();
                 
+                // Files Array (JSONB) ko parse karke buttons banana
+                let filesHtml = '';
+                if (sub.files && sub.files.length > 0) {
+                    sub.files.forEach(file => {
+                        filesHtml += `<button class="btn" style="padding: 5px 10px; font-size: 12px; width: auto; margin: 2px;" onclick="viewFile('${file.path}')">View ${file.type.toUpperCase()}</button>`;
+                    });
+                } else {
+                    filesHtml = '<span style="color: #888;">No files</span>';
+                }
+
                 tr.innerHTML = `
-                    <td>${date}</td>
-                    <td><strong>${app.application_id}</strong></td>
-                    <td>${app.customer_name}<br><small>${app.phone}</small></td>
-                    <td>${app.service}</td>
+                    <td>${date}<br><small>ID: ${sub.id.substring(0,8)}...</small></td>
+                    <td>${sub.customer_name}<br><small>${sub.mobile}</small></td>
+                    <td>${sub.service}</td>
+                    <td>${filesHtml}</td>
                     <td>
-                        <button class="btn" style="padding: 5px 10px; font-size: 12px; width: auto; margin-bottom: 5px;" onclick="viewFile('${app.photo_path}')">View Photo</button>
-                        <button class="btn" style="padding: 5px 10px; font-size: 12px; width: auto;" onclick="viewFile('${app.pdf_path}')">View PDF</button>
-                    </td>
-                    <td>
-                        <select onchange="updateStatus('${app.id}', this.value)" style="padding: 5px; border-radius: 4px;">
-                            <option value="Pending" ${app.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                            <option value="Processing" ${app.status === 'Processing' ? 'selected' : ''}>Processing</option>
-                            <option value="Completed" ${app.status === 'Completed' ? 'selected' : ''}>Completed</option>
-                            <option value="Rejected" ${app.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                        <select onchange="updateStatus('${sub.id}', this.value)" style="padding: 5px; border-radius: 4px;">
+                            <option value="Pending" ${sub.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                            <option value="Processing" ${sub.status === 'Processing' ? 'selected' : ''}>Processing</option>
+                            <option value="Completed" ${sub.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                            <option value="Rejected" ${sub.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
                         </select>
-                    </td>
-                    <td>
-                        <span class="status-badge status-${app.status}">${app.status}</span>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        // Search & Filter
-        function filterData() {
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            const status = document.getElementById('statusFilter').value;
-
-            const filtered = allApplications.filter(app => {
-                const matchesSearch = app.customer_name.toLowerCase().includes(search) || 
-                                      app.phone.includes(search) || 
-                                      app.application_id.toLowerCase().includes(search);
-                const matchesStatus = status === 'All' || app.status === status;
-                return matchesSearch && matchesStatus;
-            });
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const search = e.target.value.toLowerCase();
+            const filtered = allSubmissions.filter(sub => 
+                sub.customer_name.toLowerCase().includes(search) || 
+                sub.mobile.includes(search) || 
+                sub.id.toLowerCase().includes(search)
+            );
             renderTable(filtered);
-        }
+        });
 
-        document.getElementById('searchInput').addEventListener('input', filterData);
-        document.getElementById('statusFilter').addEventListener('change', filterData);
-
-        // Update Status
         async function updateStatus(id, newStatus) {
-            const { error } = await supabaseClient
-                .from('applications')
-                .update({ status: newStatus })
-                .eq('id', id);
-
-            if (error) {
-                alert('Error updating status: ' + error.message);
-            } else {
-                loadApplications(); // Reload to reflect changes properly
-            }
+            const { error } = await supabaseClient.from('submissions').update({ status: newStatus }).eq('id', id);
+            if (error) alert('Error updating status: ' + error.message);
+            else loadSubmissions();
         }
 
-        // View File (Generates Temporary Signed URL)
         async function viewFile(path) {
-            if (!path) {
-                alert("No file uploaded.");
-                return;
-            }
-            // Signed URL valid for 60 seconds
-            const { data, error } = await supabaseClient
-                .storage
-                .from('customer-documents')
-                .createSignedUrl(path, 60);
-
-            if (error) {
-                alert("Error generating file link: " + error.message);
-            } else {
-                window.open(data.signedUrl, '_blank');
-            }
+            const { data, error } = await supabaseClient.storage.from('customer-documents').createSignedUrl(path, 60);
+            if (error) alert("Error: " + error.message);
+            else window.open(data.signedUrl, '_blank');
         }
     </script>
 </body>
